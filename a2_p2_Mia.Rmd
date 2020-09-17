@@ -65,9 +65,11 @@ growth3 <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^3) + (1 + VIS
 
 #- calculate performance of the model on the training data: root mean square error is a good measure. (Tip: google the function rmse())
 
-rmse(traindf$CHI_MLU, predict(linear, traindf, allow.new.levels = T))
-rmse(traindf$CHI_MLU, predict(growth3, traindf, allow.new.levels = T))
+trainlinear_rmse <- rmse(traindf$CHI_MLU, predict(linear, traindf, allow.new.levels = T)) #packages hydroGOF and Metrics are needed
+traingrowth_rmse <- rmse(traindf$CHI_MLU, predict(growth3, traindf, allow.new.levels = T))
 
+trainlinear_rmse
+traingrowth_rmse
 
 ##- create the test dataset (apply the code from assignment 1 or my function to clean up the 3 test datasets)
 # Test data
