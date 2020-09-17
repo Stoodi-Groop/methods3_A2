@@ -49,68 +49,24 @@ How did your models from last time perform? In this exercise you have to compare
 
 ```{r, include = FALSE}
 
-pacman::p_load(readr,dplyr,stringr,lmerTest,Metrics,caret, tidyverse)
-
-## Clean up function, included to inspire you
-
-# CleanUpData <- function(Demo,LU,Word){
-#   
-#   Speech <- merge(LU, Word) %>% 
-#     rename(
-#       Child.ID = SUBJ, 
-#       Visit=VISIT) %>%
-#     mutate(
-#       Visit = as.numeric(str_extract(Visit, "\\d")),
-#       Child.ID = gsub("\\.","", Child.ID)
-#       ) %>%
-#     dplyr::select(
-#       Child.ID, Visit, MOT_MLU, CHI_MLU, types_MOT, types_CHI, tokens_MOT, tokens_CHI
-#     )
-#   
-#   Demo <- Demo %>%
-#     dplyr::select(
-#       Child.ID, Visit, Ethnicity, Diagnosis, Gender, Age, ADOS, MullenRaw, ExpressiveLangRaw, Socialization
-#     ) %>%
-#     mutate(
-#       Child.ID = gsub("\\.","", Child.ID)
-#     )
-#     
-#   Data=merge(Demo,Speech,all=T)
-#   
-#   Data1= Data %>% 
-#      subset(Visit=="1") %>% 
-#      dplyr::select(Child.ID, ADOS, ExpressiveLangRaw, MullenRaw, Socialization) %>%
-#      rename(Ados1 = ADOS, 
-#             verbalIQ1 = ExpressiveLangRaw, 
-#             nonVerbalIQ1 = MullenRaw,
-#             Socialization1 = Socialization) 
-#   
-#   Data=merge(Data, Data1, all=T) %>%
-#     mutate(
-#       Child.ID = as.numeric(as.factor(as.character(Child.ID))),
-#       Visit = as.numeric(as.character(Visit)),
-#       Gender = recode(Gender, 
-#          "1" = "M",
-#          "2" = "F"),
-#       Diagnosis = recode(Diagnosis,
-#          "A"  = "ASD",
-#          "B"  = "TD")
-#     )
-# 
-#   return(Data)
-# }
+pacman::p_load(readr,dplyr,stringr,lmerTest,Metrics,caret, tidyverse, lme4, hydroGOF)
 
 ```
 
 ```{r}
 # Load training Data
-train_df <- read_csv("portfolio1_data.csv")
+traindf <- read_csv("portfolio1_data.csv")
+  
+#- recreate the models you chose last time (just write the code again and apply it to Train Data) <-  both growth models and the best linear one
+linear <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + (1 + VISIT | ID), traindf, REML = F)
 
-#- recreate the models you chose last time (just write the code again and apply it to Train Data)
+growth3 <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^3) + (1 + VISIT | ID), traindf, REML = F)
 
 
 #- calculate performance of the model on the training data: root mean square error is a good measure. (Tip: google the function rmse())
 
+rmse(traindf$CHI_MLU, predict(linear, traindf, allow.new.levels = T))
+rmse(traindf$CHI_MLU, predict(growth3, traindf, allow.new.levels = T))
 
 
 ##- create the test dataset (apply the code from assignment 1 or my function to clean up the 3 test datasets)
@@ -118,6 +74,7 @@ train_df <- read_csv("portfolio1_data.csv")
 demo_test <- read_csv("demo_test.csv")
 lu_test <- read_csv("LU_test.csv")
 token_test <- read_csv("token_test.csv")
+
 #renaming coloumns that are spelled differently
 demo_test <- demo_test %>% 
   rename(ID = Child.ID,
@@ -168,6 +125,7 @@ testdf <- testdf %>%
          nonverbalIQ = MullenRaw,
          verbalIQ1 = ExpressiveLangRaw1,
          nonverbalIQ1 = MullenRaw1)
+
 #anonymizing
 testdf$ID <- as.factor(as.numeric(as.factor(testdf$ID)))
                                   
@@ -176,8 +134,11 @@ testdf <- testdf %>%
   mutate(Gender = ifelse(Gender == 1, "M", "F")) %>% #determined by looking at the name Adam and his gender 
   mutate(Diagnosis = ifelse(Diagnosis == "A", "ASD", "TD")) #determined by Byurakn's description
 
-#- test the performance of the models on the test data (Tips: google the functions "predict()")
+#saving the data
+write.csv(testdf, file = "clean_test_data.csv")
 
+#- test the performance of the models on the test data (Tips: google the functions "predict()")
+rmse(traindf$CHI_MLU, predict(linear, traindf, allow.new.levels = T))
 
 #- optional: predictions are never certain, can you identify the uncertainty of the predictions? (e.g. google predictinterval())
 
