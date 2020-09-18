@@ -175,6 +175,7 @@ basic <- lmer(CHI_MLU ~ VISIT + Diagnosis + (1 + VISIT | ID), traindf, REML = F)
 
 #- Make a cross-validated version of the model. (Tips: google the function "createFolds";  loop through each fold, train a model on the other folds and test it on the fold)
 
+#basic model
 k = 6
 basic_trainRMSE <- rep(NA, k)
 basic_testRMSE <- rep(NA, k)
@@ -187,8 +188,8 @@ for (fold in folds) {
   model = basic
   test$prediction = predict(model, test, allow.new.levels = T)
   train$prediction = predict(model, train, allow.new.level = T) 
-  basic_trainRMSE[i] = rmse(train$types_CHI, train$prediction)
-  basic_testRMSE[i] = rmse(test$types_CHI, test$prediction)
+  basic_trainRMSE[i] = rmse(train$CHI_MLU, train$prediction)
+  basic_testRMSE[i] = rmse(test$CHI_MLU, test$prediction)
   i = i + 1
 }
 
@@ -196,6 +197,7 @@ basic_trainRMSE
 basic_testRMSE
 
 
+#growth model
 growth_trainRMSE <- rep(NA, k)
 growth_testRMSE <- rep(NA, k)
 
@@ -207,8 +209,8 @@ for (fold in folds) {
   model = growth3
   test$prediction = predict(model, test, allow.new.levels = T)
   train$prediction = predict(model, train, allow.new.level = T) 
-  growth_trainRMSE[l] = rmse(train$types_CHI, train$prediction)
-  growth_testRMSE[l] = rmse(test$types_CHI, test$prediction)
+  growth_trainRMSE[l] = rmse(train$CHI_MLU, train$prediction)
+  growth_testRMSE[l] = rmse(test$CHI_MLU, test$prediction)
   l = l + 1
 }
 
