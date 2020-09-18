@@ -146,8 +146,6 @@ growth3 <- lmerTest::lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^3) 
  # sqrt(mean((data$actual - data$predicted)^2)) - code for running and rmse manually
 
 
-#trainRMSE <- rmse(train_df$CHI_MLU, linear)
-
 trainlinearrmse <- rmse(traindf$CHI_MLU, predict(linear, traindf, allow.new.levels = T))
 
 trainlinearrmse
@@ -157,6 +155,17 @@ traingrowthrmse <- rmse(traindf$CHI_MLU, predict(growth3, traindf, allow.new.lev
 traingrowthrmse
 
 #- test the performance of the models on the test data (Tips: google the functions "predict()")
+
+testlinearrmse <- rmse(testdf$CHI_MLU, predict(linear, testdf, allow.new.levels = T))
+
+testlinearrmse
+
+testgrowthrmse <- rmse(testdf$CHI_MLU, predict(growth3, testdf, allow.new.levels = T))
+
+testgrowthrmse
+
+
+
 
 
 #- optional: predictions are never certain, can you identify the uncertainty of the predictions? (e.g. google predictinterval())
@@ -184,7 +193,66 @@ In this exercise you have to use cross-validation to calculate the predictive er
 ```{r}
 #- Create the basic model of ChildMLU as a function of Time and Diagnosis (don't forget the random effects!).
 
+basic <- lmer(CHI_MLU ~ VISIT + Diagnosis + (1 + VISIT | ID), traindf)
+
 #- Make a cross-validated version of the model. (Tips: google the function "createFolds";  loop through each fold, train a model on the other folds and test it on the fold)
+
+
+library(Metrics)
+
+k = 6 
+folds = createFolds(unique(traindf$ID), k = k , list = T, returnTrain = F)
+
+
+
+basic_trainRMSE = rep(NA, k)
+basic_testRMSE = (rep(NA, k))
+
+
+#creating loop for basic model 
+i = 1
+for (fold in folds) {
+  train = subset (traindf, !(ID %in% fold))
+  test = subset (traindf, ID %in% fold)
+  model = basic
+  test$prediction = predict(model, test, allow.new.levels = T)
+  train$prediction = predict(model, train, allow.new.level = T) 
+  basic_trainRMSE[i] = rmse(train$types_CHI, train$prediction)
+  basic_testRMSE[i] = rmse(test$types_CHI, test$prediction)
+  i = i + 1
+}
+
+
+basic_trainRMSE
+basic_testRMSE
+```
+
+
+Growth model: 
+
+```{r}
+
+
+
+growth_trainRMSE <- rep(NA, k)
+growth_testRMSE <- rep(NA, k)
+
+l = 1
+
+for (fold in folds) {
+  train = subset (traindf, !(ID %in% fold))
+  test = subset (traindf, ID %in% fold)
+  model = growth3
+  test$prediction = predict(model, test, allow.new.levels = T)
+  train$prediction = predict(model, train, allow.new.level = T) 
+  growth_trainRMSE[l] = rmse(train$types_CHI, train$prediction)
+  growth_testRMSE[l] = rmse(test$types_CHI, test$prediction)
+  l = l + 1
+}
+
+growth_trainRMSE
+growth_testRMSE
+
 
 #- Report the results and comment on them. 
 
