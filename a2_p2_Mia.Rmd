@@ -199,21 +199,22 @@ basic_testRMSE
 growth_trainRMSE <- rep(NA, k)
 growth_testRMSE <- rep(NA, k)
 
-folds = createFolds(unique(traindf$ID), k = k, list = TRUE, returnTrain = FALSE)
-i = 1
+l = 1
+
 for (fold in folds) {
   train = subset (traindf, !(ID %in% fold))
   test = subset (traindf, ID %in% fold)
-  model = basic
+  model = growth3
   test$prediction = predict(model, test, allow.new.levels = T)
   train$prediction = predict(model, train, allow.new.level = T) 
-  basic_trainRMSE[i] = rmse(train$types_CHI, train$prediction)
-  basic_testRMSE[i] = rmse(test$types_CHI, test$prediction)
-  i = i + 1
+  growth_trainRMSE[l] = rmse(train$types_CHI, train$prediction)
+  growth_testRMSE[l] = rmse(test$types_CHI, test$prediction)
+  l = l + 1
 }
 
-basic_trainRMSE
-basic_testRMSE
+growth_trainRMSE
+growth_testRMSE
+
 #- Report the results and comment on them. 
 
 
