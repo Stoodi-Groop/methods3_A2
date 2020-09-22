@@ -7,6 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
 ```
 
 ## Welcome to the second exciting part of the Language Development in ASD exercise
@@ -53,29 +54,8 @@ pacman::p_load(readr,dplyr,stringr,lmerTest,Metrics,caret, lme4, hydroGOF)
 # Load training Data
 traindf <- read_csv("portfolio1_data.csv")
 
-#- recreate the models you chose last time (just write the code again and apply it to Train Data)
 
-#linear model
-linear <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + (1+VISIT| ID), traindf, REML = F)
-
-#cubic growth curve model
-growth3 <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^3) + (1 + VISIT | ID), traindf, REML = F)
-
-#- calculate performance of the model on the training data: root mean square error is a good measure. (Tip: google the function rmse())
-
-#dropping na, which seemed to not be useful afterall 
-#traindf <- traindf %>% 
-#  drop_na(CHI_MLU)
-
-#performance using root mean square error (using hydroGOF package is crucial)
-#linear
-trainlinearrmse <- rmse(traindf$CHI_MLU, predict(linear, traindf, allow.new.levels = T)) 
-
-#growth
-traingrowthrmse <- rmse(traindf$CHI_MLU, predict(growth3, traindf, allow.new.levels = T))
-
-
-#- create the test dataset (apply the code from assignment 1 or my function to clean up the 3 test datasets)
+##- create the test dataset (apply the code from assignment 1 or my function to clean up the 3 test datasets)
 # Test data
 demo_test <- read_csv("demo_test.csv")
 lu_test <- read_csv("LU_test.csv")
@@ -90,6 +70,9 @@ lu_test <- lu_test %>%
 
 token_test <- token_test %>% 
   rename(ID = SUBJ)
+
+#Cleaning the data
+
 
 #making visit homogenous by extract the digit and making all the coloumns numerical
 lu_test$VISIT <- str_extract(lu_test$VISIT, "\\d")
@@ -125,23 +108,39 @@ visit1 <- visit1 %>%
 testdf <- merge(visit1, testdf)
 
 #renaming coloumns
+
+#train
+traindf <- traindf %>% 
+  rename(verbalIQ = ExpressiveLangRaw,
+         nonverbalIQ = MullenRaw,
+         verbalIQ1 = ExpressiveLangRaw1,
+         nonverbalIQ1 = MullenRaw1)
+
+#test
 testdf <- testdf %>% 
   rename(verbalIQ = ExpressiveLangRaw,
          nonverbalIQ = MullenRaw,
          verbalIQ1 = ExpressiveLangRaw1,
          nonverbalIQ1 = MullenRaw1)
 #anonymizing
-testdf$ID <- as.factor(as.numeric(as.factor(testdf$ID)))
+#testdf$ID <- as.factor(as.numeric(as.factor(testdf$ID)))
                                   
 #redoing values
 testdf <- testdf %>% 
   mutate(Gender = ifelse(Gender == 1, "M", "F")) %>% #determined by looking at the name Adam and his gender 
   mutate(Diagnosis = ifelse(Diagnosis == "A", "ASD", "TD")) #determined by Byurakn's description
 
-#saving the data
+
+
+#saving testdf
+
 write.csv(testdf, file = "clean_test_data.csv")
 
-testdf <- read.csv("clean_test_data.csv")
+#models
+linear <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + (1 + VISIT | ID), traindf, REML = F)
+
+growth3 <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^3) + (1 + VISIT | ID), traindf, REML = F)
+
 
 #- test the performance of the models on the test data (Tips: google the functions "predict()")
 testlinearrmse <- rmse(testdf$CHI_MLU, predict(linear, testdf, allow.new.levels = T)) 
@@ -175,13 +174,31 @@ In this exercise you have to use cross-validation to calculate the predictive er
 
 
 ```{r}
+
+#make full dataset
+#remove column so they can be merged
+traindf <- traindf[,-1]
+
+fulldf <- rbind(traindf, testdf)
+
+#anonymizing
+fulldf$ID <- as.factor(as.numeric(as.factor(fulldf$ID)))
+
 #- Create the basic model of ChildMLU as a function of Time and Diagnosis (don't forget the random effects!).
 
-basic <- lmer(CHI_MLU~VISIT + Diagnosis + (1 + VISIT|ID), traindf, REML = F)
+#basic model with full dataframe
+basic <- lmer(CHI_MLU~VISIT + Diagnosis + (1 + VISIT|ID), fulldf, REML = F)
+
+
+#cubic growth curve model with full dataframe
+growth_full <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^3) + (1 + VISIT | ID), fulldf, REML = F)
+
+
+#- Make a cross-validated version of the model. (Tips: google the function "createFolds";  loop through each fold, train a model on the other folds and test it on the fold)
 
 #define folds
 k = 6
-folds = createFolds(unique(traindf$ID), k = k, list = TRUE, returnTrain = FALSE)
+folds = createFolds(unique(fulldf$ID), k = k, list = TRUE, returnTrain = FALSE)
 
 #basic model
 basic_trainRMSE <- rep(NA, k)
@@ -190,8 +207,8 @@ basic_testRMSE <- rep(NA, k)
 
 i = 1
 for (fold in folds) {
-  train = subset (traindf, !(ID %in% fold))
-  test = subset (traindf, ID %in% fold)
+  train = subset (fulldf, !(ID %in% fold))
+  test = subset (fulldf, ID %in% fold)
   model = basic
   test$prediction = predict(model, test, allow.new.levels = T)
   train$prediction = predict(model, train, allow.new.level = T) 
@@ -213,8 +230,8 @@ growth_testRMSE <- rep(NA, k)
 l = 1
 
 for (fold in folds) {
-  train = subset (traindf, !(ID %in% fold))
-  test = subset (traindf, ID %in% fold)
+  train = subset (fulldf, !(ID %in% fold))
+  test = subset (fulldf, ID %in% fold)
   model = growth3
   test$prediction = predict(model, test, allow.new.levels = T)
   train$prediction = predict(model, train, allow.new.level = T) 
@@ -228,13 +245,98 @@ growth_trainRMSE
 growth_testRMSE
 
 
-#- Make a cross-validated version of the model. (Tips: google the function "createFolds";  loop through each fold, train a model on the other folds and test it on the fold)
-
-
 
 #- Report the results and comment on them. 
 
 #- Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
+
+#checking for collinearity
+dummy_df1 <- data.frame(fulldf$nonverbalIQ, fulldf$verbalIQ)
+print(correl_dummy_df1 <- round(cor(dummy_df1, use = "pair"), 2))
+
+dummy_df2 <- data.frame(fulldf$VISIT, fulldf$verbalIQ)
+print(correl_dummy_df2 <- round(cor(dummy_df2, use = "pair"), 2))
+
+dummy_df3 <- data.frame(fulldf$VISIT, fulldf$nonverbalIQ)
+print(correl_dummy_df3 <- round(cor(dummy_df3, use = "pair"), 2))
+
+dummy_df4 <- data.frame(fulldf$VISIT, fulldf$Age)
+print(correl_dummy_df4 <- round(cor(dummy_df4, use = "pair"), 2))
+
+#make models
+
+#failing to converge
+#nonandverbal2 <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^2) + nonverbalIQ + verbalIQ + (1 + VISIT | ID), fulldf, REML = F)
+#nonandverbal3 <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^3) + nonverbalIQ + verbalIQ + (1 + VISIT | ID), fulldf, REML = F)
+
+# #issingular
+# onlynon <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^2) + nonverbalIQ + (1 + VISIT | ID), fulldf, REML = F)
+# nondiagnosis <- lmer(CHI_MLU ~ Gender + Age + nonverbalIQ + Diagnosis + I(VISIT^3) + (1 + VISIT | ID), fulldf, REML = F)
+# #verbaldiagnosis <- lmer(CHI_MLU ~ Gender + Age + verbalIQ + Diagnosis + I(VISIT^3) + (1 + VISIT | ID), fulldf, REML = F) cannot run
+# #onlyverb <- lmer(CHI_MLU ~ Gender + VISIT*Diagnosis + I(VISIT^2) + verbalIQ + (1 + VISIT | ID), fulldf, REML = F) #cannot run
+# onlynon3 <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^3) + nonverbalIQ + (1 + VISIT | ID), fulldf, REML = F)
+# nondiagnosis3 <- lmer(CHI_MLU ~ Gender + Age + nonverbalIQ + Diagnosis + I(VISIT^3) + (1 + VISIT | ID), fulldf, REML = F)
+# #verbaldiagnosis3 <- lmer(CHI_MLU ~ Gender + Age + verbalIQ + Diagnosis + I(VISIT^3) + (1 + VISIT | ID), fulldf, REML = F) cannot run
+# #onlyverbnoage3 <- lmer(CHI_MLU ~ Gender + VISIT*Diagnosis + I(VISIT^3) + verbalIQ + (1 + VISIT | ID), fulldf, REML = F) #cannot run
+# onlytypes3 <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^3) + types_CHI + (1 + VISIT | ID), fulldf, REML = F)
+# nonandverbal2 <- lmer(CHI_MLU ~ Gender + Age + Diagnosis*VISIT+nonverbalIQ + types_CHI+I(VISIT^2)+(1+VISIT | ID), fulldf)
+# onlytypes2 <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + types_CHI + I(VISIT^2) + (1 + VISIT | ID), fulldf, REML = F)
+
+#working models in ^2
+model1 <- lmer(CHI_MLU ~ Gender + Age + Diagnosis*VISIT + I(VISIT^2) + (1 + VISIT | ID), fulldf, REML = F)
+
+P = 1
+for (fold in folds) {
+  train = subset (fulldf, !(ID %in% fold))
+  test = subset (fulldf, ID %in% fold)
+  model = model1
+  test$prediction = predict(model, test, allow.new.levels = T)
+  train$prediction = predict(model, train, allow.new.level = T) 
+  growth_trainRMSE[P] = rmse(train$CHI_MLU, train$prediction)
+  growth_testRMSE[P] = rmse(test$CHI_MLU, test$prediction)
+  P = P + 1
+}
+growth_trainRMSE
+growth_testRMSE
+
+
+#working models in ^3
+model2 <- lmer(CHI_MLU ~ Gender + Age + Diagnosis*VISIT + I(VISIT^3) + (1 + VISIT | ID), fulldf, REML = F)
+
+G = 1
+for (fold in folds) {
+  train = subset (fulldf, !(ID %in% fold))
+  test = subset (fulldf, ID %in% fold)
+  model = model2
+  test$prediction = predict(model, test, allow.new.levels = T)
+  train$prediction = predict(model, train, allow.new.level = T) 
+  growth_trainRMSE[G] = rmse(train$CHI_MLU, train$prediction)
+  growth_testRMSE[G] = rmse(test$CHI_MLU, test$prediction)
+  G = G + 1
+}
+growth_trainRMSE
+growth_testRMSE
+
+
+#new model
+model3 <- lmer(CHI_MLU ~ Gender + Diagnosis*VISIT + I(VISIT^3) + (1 + VISIT | ID), fulldf, REML = F) #OK
+
+Y = 1
+for (fold in folds) {
+  train = subset (fulldf, !(ID %in% fold))
+  test = subset (fulldf, ID %in% fold)
+  model = model3
+  test$prediction = predict(model, test, allow.new.levels = T)
+  train$prediction = predict(model, train, allow.new.level = T) 
+  growth_trainRMSE[Y] = rmse(train$CHI_MLU, train$prediction)
+  growth_testRMSE[Y] = rmse(test$CHI_MLU, test$prediction)
+  Y = Y + 1
+} 
+growth_trainRMSE
+growth_testRMSE
+
+
+
 
 # Bonus Question 1: What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
 # Bonus Question 2: compare the cross-validated predictive error against the actual predictive error on the test data
@@ -255,6 +357,25 @@ You want to evaluate:
 - how does the child fare compared to the model predictions at Visit 6? Is the child below or above expectations? (tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child)
 
 ```{r}
+#anonymizing
+testdf$ID <- as.factor(as.numeric(as.factor(testdf$ID)))
+
+#filter for one child "Bernie", here we chose ID number 2 
+bernie <- filter(testdf, ID == 2)
+
+TD <- filter(fulldf, Diagnosis == "TD")
+
+#Bernie's MLU compared to the average TD
+
+#mean MLU for TD for each visit
+mean_td <- aggregate(TD$CHI_MLU, list(TD$VISIT), mean, na.rm = T)
+
+#difference between Bernie and average TD
+difference <- mean_td$x - bernie$CHI_MLU
+
+#use predict function
+predicted <- predict(model2, bernie, allow.new.levels = T) 
+
 
 ```
 
