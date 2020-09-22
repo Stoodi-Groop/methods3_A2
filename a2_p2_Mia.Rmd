@@ -129,7 +129,6 @@ testdf <- testdf %>%
          nonverbalIQ1 = MullenRaw1)
 
 #anonymizing
-testdf$ID <- as.factor(as.numeric(as.factor(testdf$ID)))
                                   
 #redoing values
 testdf <- testdf %>% 
@@ -170,14 +169,6 @@ In this exercise you have to use cross-validation to calculate the predictive er
 
 
 ```{r}
-#- Create the basic model of ChildMLU as a function of Time and Diagnosis (don't forget the random effects!).
-basic <- lmer(CHI_MLU ~ VISIT + Diagnosis + (1 + VISIT | ID), fulldf, REML = F)
-#redefining growth model for full dataset
-growth_full <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^3) + (1 + VISIT | ID), fulldf, REML = F)
-
-
-#- Make a cross-validated version of the model. (Tips: google the function "createFolds";  loop through each fold, train a model on the other folds and test it on the fold)
-
 #removing X1 coloumn
 traindf <- traindf[,-1]
 
@@ -191,7 +182,16 @@ traindf <- traindf %>%
 #combining test and train data
 fulldf <- rbind(traindf, testdf)
 
+#anonymizing
+fulldf$ID <- as.factor(as.numeric(as.factor(fulldf$ID)))
 
+#- Create the basic model of ChildMLU as a function of Time and Diagnosis (don't forget the random effects!).
+basic <- lmer(CHI_MLU ~ VISIT + Diagnosis + (1 + VISIT | ID), fulldf, REML = F)
+#redefining growth model for full dataset
+growth_full <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^3) + (1 + VISIT | ID), fulldf, REML = F)
+
+
+#- Make a cross-validated version of the model. (Tips: google the function "createFolds";  loop through each fold, train a model on the other folds and test it on the fold)
 
 #basic model
 k = 6
@@ -235,15 +235,104 @@ for (fold in folds) {
 growth_trainRMSE
 growth_testRMSE
 
-#- Report the results and comment on them. 
+#- Report the results and comment on them.
+```
+
+
+```{r}
+## Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
+#checking for collinearity
+dummy_df1 <- data.frame(fulldf$nonverbalIQ, fulldf$verbalIQ)
+print(correl_dummy_df1 <- round(cor(dummy_df1, use = "pair"), 2))
+
+dummy_df2 <- data.frame(fulldf$types_CHI, fulldf$verbalIQ)
+print(correl_dummy_df2 <- round(cor(dummy_df2, use = "pair"), 2))
+
+dummy_df3 <- data.frame(fulldf$VISIT, fulldf$nonverbalIQ)
+print(correl_dummy_df3 <- round(cor(dummy_df3, use = "pair"), 2))
+
+dummy_df4 <- data.frame(fulldf$VISIT, fulldf$Age)
+print(correl_dummy_df4 <- round(cor(dummy_df4, use = "pair"), 2))
 
 
 #- Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
 
+k=6
+folds = createFolds(unique(fulldf$ID), k = k, list = TRUE, returnTrain = FALSE)
 
-# Bonus Question 1: What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
-# Bonus Question 2: compare the cross-validated predictive error against the actual predictive error on the test data
+#failing to converge
+#nonandverbal2 <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^2) + nonverbalIQ + verbalIQ + (1 + VISIT | ID), fulldf, REML = F)
+#nonandverbal3 <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^3) + nonverbalIQ + verbalIQ + (1 + VISIT | ID), fulldf, REML = F)
+
+#issingular
+#onlynon <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^2) + nonverbalIQ + (1 + VISIT | ID), fulldf, REML = F)
+#nondiagnosis <- lmer(CHI_MLU ~ Gender + Age + nonverbalIQ + Diagnosis + I(VISIT^3) + (1 + VISIT | ID), fulldf, REML = F)
+#verbaldiagnosis <- lmer(CHI_MLU ~ Gender + Age + verbalIQ + Diagnosis + I(VISIT^3) + (1 + VISIT | ID), fulldf, REML = F) cannot run
+#onlyverb <- lmer(CHI_MLU ~ Gender + VISIT*Diagnosis + I(VISIT^2) + verbalIQ + (1 + VISIT | ID), fulldf, REML = F) #cannot run
+#onlynon3 <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^3) + nonverbalIQ + (1 + VISIT | ID), fulldf, REML = F)
+#nondiagnosis3 <- lmer(CHI_MLU ~ Gender + Age + nonverbalIQ + Diagnosis + I(VISIT^3) + (1 + VISIT | ID), fulldf, REML = F)
+#verbaldiagnosis3 <- lmer(CHI_MLU ~ Gender + Age + verbalIQ + Diagnosis + I(VISIT^3) + (1 + VISIT | ID), fulldf, REML = F) cannot run
+#onlyverbnoage3 <- lmer(CHI_MLU ~ Gender + VISIT*Diagnosis + I(VISIT^3) + verbalIQ + (1 + VISIT | ID), fulldf, REML = F) #cannot run
+#onlytypes3 <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^3) + types_CHI + (1 + VISIT | ID), fulldf, REML = F)
+#nonandverbal2 <- lmer(CHI_MLU ~ Gender + Age + Diagnosis*VISIT+nonverbalIQ + types_CHI+I(VISIT^2)+(1+VISIT | ID), fulldf)
+#onlytypes2 <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + types_CHI + I(VISIT^2) + (1 + VISIT | ID), fulldf, REML = F)
+
+#working models in ^2
+model1 <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^2) + (1 + VISIT | ID), fulldf, REML = F)
+P = 1
+for (fold in folds) {
+  train = subset (fulldf, !(ID %in% fold))
+  test = subset (fulldf, ID %in% fold)
+  model = model1
+  test$prediction = predict(model, test, allow.new.levels = T)
+  train$prediction = predict(model, train, allow.new.level = T) 
+  growth_trainRMSE[P] = rmse(train$CHI_MLU, train$prediction)
+  growth_testRMSE[P] = rmse(test$CHI_MLU, test$prediction)
+  P = P + 1
+}
+growth_trainRMSE
+growth_testRMSE
+
+
+#working models in ^3
+model2 <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^3) + (1 + VISIT | ID), fulldf, REML = F)
+
+G = 1
+for (fold in folds) {
+  train = subset (fulldf, !(ID %in% fold))
+  test = subset (fulldf, ID %in% fold)
+  model = model2
+  test$prediction = predict(model, test, allow.new.levels = T)
+  train$prediction = predict(model, train, allow.new.level = T) 
+  growth_trainRMSE[G] = rmse(train$CHI_MLU, train$prediction)
+  growth_testRMSE[G] = rmse(test$CHI_MLU, test$prediction)
+  G = G + 1
+}
+growth_trainRMSE
+growth_testRMSE
+
+
+#new model
+model3 <- lmer(CHI_MLU ~ Gender + VISIT*Diagnosis + I(VISIT^3) + (1 + VISIT | ID), fulldf, REML = F) #OK
+
+Y = 1
+for (fold in folds) {
+  train = subset (fulldf, !(ID %in% fold))
+  test = subset (fulldf, ID %in% fold)
+  model = model3
+  test$prediction = predict(model, test, allow.new.levels = T)
+  train$prediction = predict(model, train, allow.new.level = T) 
+  growth_trainRMSE[Y] = rmse(train$CHI_MLU, train$prediction)
+  growth_testRMSE[Y] = rmse(test$CHI_MLU, test$prediction)
+  Y = Y + 1
+} 
+growth_trainRMSE
+growth_testRMSE
+
+AIC(model1, model2, model3)
 ```
+
+model2 is best model 
 
 [HERE GOES YOUR ANSWER]
 
@@ -260,10 +349,32 @@ You want to evaluate:
 - how does the child fare compared to the model predictions at Visit 6? Is the child below or above expectations? (tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child)
 
 ```{r}
+#anonymizing
+testdf$ID <- as.factor(as.numeric(as.factor(testdf$ID)))
+
+#extracting child
+bernie <- filter(testdf, ID == 3) #random child
+bernie2 <- filter(testdf, ID == 2) #actually bernie
+
+#bernie's MLU compared to the average TD
+td <-filter(fulldf, Diagnosis == "TD")
+
+mean_td <- aggregate(td$CHI_MLU, list(td$VISIT), mean, na.rm = T)
+
+difference <- mean_td$x - bernie$CHI_MLU
+
+difference
+
+#predicting bernie from chosen model (model 2, which is the same as our growth curve model)
+bernie$predicted <- predict(model2, bernie, allow.new.levels = T)
+bernie2$predicted <- predict(model2, bernie2, allow.new.levels = T)
+
+bernie
+bernie2
 
 ```
 
-
+model is shit 
 [HERE GOES YOUR ANSWER]
 
 ### OPTIONAL: Exercise 4) Model Selection via Information Criteria
