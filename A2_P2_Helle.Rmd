@@ -47,7 +47,7 @@ How did your models from last time perform? In this exercise you have to compare
 
 ```{r, include = FALSE}
 pacman::p_load(readr,dplyr, stringr,lmerTest, caret, tidyverse, Metrics, hydroGOF)
-
+library(hydroGOF)
 
 
 # Load training Data
@@ -121,8 +121,7 @@ testdf <- testdf %>%
          nonverbalIQ = MullenRaw,
          verbalIQ1 = ExpressiveLangRaw1,
          nonverbalIQ1 = MullenRaw1)
-#anonymizing
-testdf$ID <- as.factor(as.numeric(as.factor(testdf$ID)))
+
                                   
 #redoing values
 testdf <- testdf %>% 
@@ -200,11 +199,17 @@ In this exercise you have to use cross-validation to calculate the predictive er
 
 
 ```{r}
+
+
 #Combining train and test dataframes 
 
 traindf <- traindf[,-1]
 
 fulldf <- rbind(traindf, testdf)
+
+
+#anonymizing test ID's
+fulldf$ID <- as.factor(as.numeric(as.factor(fulldf$ID)))
 
 #- Create the basic model of ChildMLU as a function of Time and Diagnosis (don't forget the random effects!).
 basic <- lmer(CHI_MLU ~ VISIT + Diagnosis + (1 + VISIT | ID), fulldf, REML = F)
@@ -249,6 +254,7 @@ growth_trainRMSE <- rep(NA, k)
 growth_testRMSE <- rep(NA, k)
 
 l = 1
+folds = createFolds(unique(fulldf$ID), k = k , list = T, returnTrain = F)
 
 for (fold in folds) {
   train = subset (fulldf, !(ID %in% fold))
@@ -265,9 +271,67 @@ growth_trainRMSE
 growth_testRMSE
 
 
-#- Report the results and comment on them. 
+#- Report the results and comment on them.
+```
 
+
+```{r}
 #- Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
+
+#working models in ^2
+model1 <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^2) + (1 + VISIT | ID), fulldf, REML = F)
+P = 1
+for (fold in folds) {
+  train = subset (fulldf, !(ID %in% fold))
+  test = subset (fulldf, ID %in% fold)
+  model = model1
+  test$prediction = predict(model, test, allow.new.levels = T)
+  train$prediction = predict(model, train, allow.new.level = T) 
+  growth_trainRMSE[P] = rmse(train$CHI_MLU, train$prediction)
+  growth_testRMSE[P] = rmse(test$CHI_MLU, test$prediction)
+  P = P + 1
+}
+growth_trainRMSE
+growth_testRMSE
+
+
+#working models in ^3
+model2 <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^3) + (1 + VISIT | ID), fulldf, REML = F)
+
+G = 1
+for (fold in folds) {
+  train = subset (fulldf, !(ID %in% fold))
+  test = subset (fulldf, ID %in% fold)
+  model = model2
+  test$prediction = predict(model, test, allow.new.levels = T)
+  train$prediction = predict(model, train, allow.new.level = T) 
+  growth_trainRMSE[G] = rmse(train$CHI_MLU, train$prediction)
+  growth_testRMSE[G] = rmse(test$CHI_MLU, test$prediction)
+  G = G + 1
+}
+growth_trainRMSE
+growth_testRMSE
+
+
+#new model
+model3 <- lmer(CHI_MLU ~ Gender + VISIT*Diagnosis + I(VISIT^3) + (1 + VISIT | ID), fulldf, REML = F) #OK
+
+Y = 1
+for (fold in folds) {
+  train = subset (fulldf, !(ID %in% fold))
+  test = subset (fulldf, ID %in% fold)
+  model = model3
+  test$prediction = predict(model, test, allow.new.levels = T)
+  train$prediction = predict(model, train, allow.new.level = T) 
+  growth_trainRMSE[Y] = rmse(train$CHI_MLU, train$prediction)
+  growth_testRMSE[Y] = rmse(test$CHI_MLU, test$prediction)
+  Y = Y + 1
+} 
+growth_trainRMSE
+growth_testRMSE
+
+
+
 
 # Bonus Question 1: What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
 # Bonus Question 2: compare the cross-validated predictive error against the actual predictive error on the test data
@@ -288,6 +352,33 @@ You want to evaluate:
 - how does the child fare compared to the model predictions at Visit 6? Is the child below or above expectations? (tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child)
 
 ```{r}
+#Anonymising testdf
+
+testdf$ID <- as.factor(as.numeric(as.factor(testdf$ID)))
+
+bernie <- filter(testdf, ID == 2)
+
+
+td <- filter(fulldf, Diagnosis == "TD")
+
+td$VISIT <- as.factor(td$VISIT)
+
+#bernie's MLU compared to the average TD
+mean_td <- aggregate(td$CHI_MLU, list(td$VISIT), mean, na.rm = T)
+
+difference <- mean_td$x - bernie$CHI_MLU
+
+difference
+
+
+#Report results here
+
+
+#Testing predictions of Bernie vs model 
+
+predicted <- predict(model2, bernie, allow.new.levels = T)
+predicted
+
 
 ```
 
