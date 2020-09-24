@@ -54,10 +54,12 @@ dfsub <- df %>%
 dfsub$Diagnosis <- as.factor(dfsub$Diagnosis)
 dfsub$Gender <- as.factor(dfsub$Gender)
 dfsub$ID <- as.factor(dfsub$ID)
+
 #str(dfsub)
 
 #model
 m <- lmer(CHI_MLU ~ Gender + Age + Diagnosis*VISIT + I(VISIT^3) + (1 + VISIT | ID), dfsub, REML = F)
+summary(m)
 
 #power simulation
 power_VD <-  powerSim (m, simr::fixed("Diagnosis:VISIT"), nsim = 50)
@@ -69,6 +71,7 @@ fixef(m)["DiagnosisTD:VISIT"] <- 0.1
 powerCurveVD <- powerCurve(m, fixed("Diagnosis:VISIT"), along = "ID", nsim = 50)
 powerCurveVD
 
+plot(powerCurveVD) 
 ```
 
 
