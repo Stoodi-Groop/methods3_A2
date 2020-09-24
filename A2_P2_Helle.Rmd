@@ -278,6 +278,21 @@ growth_testRMSE
 ```{r}
 #- Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
 
+#checking for collinearity
+dummy_df1 <- data.frame(fulldf$nonverbalIQ, fulldf$verbalIQ)
+print(correl_dummy_df1 <- round(cor(dummy_df1, use = "pair"), 2))
+
+dummy_df2 <- data.frame(fulldf$VISIT, fulldf$verbalIQ)
+print(correl_dummy_df2 <- round(cor(dummy_df2, use = "pair"), 2))
+
+dummy_df3 <- data.frame(fulldf$VISIT, fulldf$nonverbalIQ)
+print(correl_dummy_df3 <- round(cor(dummy_df3, use = "pair"), 2))
+
+dummy_df4 <- data.frame(fulldf$VISIT, fulldf$Age)
+print(correl_dummy_df4 <- round(cor(dummy_df4, use = "pair"), 2))
+
+
+
 #working models in ^2
 model1 <- lmer(CHI_MLU ~ Gender + Age + VISIT*Diagnosis + I(VISIT^2) + (1 + VISIT | ID), fulldf, REML = F)
 P = 1
@@ -330,7 +345,7 @@ for (fold in folds) {
 growth_trainRMSE
 growth_testRMSE
 
-
+AIC(model1, model2, model3)
 
 
 # Bonus Question 1: What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
