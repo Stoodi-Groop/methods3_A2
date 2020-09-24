@@ -66,7 +66,7 @@ power_VD <-  powerSim (m, simr::fixed("Diagnosis:VISIT"), nsim = 50)
 power_VD
 
 #power curve
-fixef(m)["DiagnosisTD:VISIT"] <- 0.1
+#fixef(m)["DiagnosisTD:VISIT"] <- 0.1
 
 powerCurveVD <- powerCurve(m, fixed("Diagnosis:VISIT"), along = "ID", nsim = 50)
 powerCurveVD
