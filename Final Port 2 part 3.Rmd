@@ -37,6 +37,7 @@ You will be using:
 - powerCurve() to estimate the needed number of participants
 - extend() to simulate more participants
 
+(Andrea)
 ```{r}
 library(tidyverse, lme4)
 library(simr)
@@ -54,7 +55,10 @@ dfsub$Diagnosis <- as.factor(dfsub$Diagnosis)
 dfsub$Gender <- as.factor(dfsub$Gender)
 dfsub$ID <- as.factor(dfsub$ID)
 str(dfsub)
+```
 
+(Anna)
+```{r}
 #model
 m <- lmer(CHI_MLU ~ Gender + Age + Diagnosis*VISIT + I(VISIT^3) + (1 + VISIT | ID), dfsub, REML = F)
 summary(m)
@@ -62,10 +66,7 @@ summary(m)
 #power simulation
 power_VD <-  powerSim (m, simr::fixed("Diagnosis:VISIT"), nsim = 50)
 power_VD
-```
 
-
-```{r}
 #PowerCurve for VISIT*Diagnosis
 
 powerCurveVD <- powerCurve(m, fixed("Diagnosis:VISIT"), along = "ID", nsim = 50)
@@ -82,6 +83,8 @@ How would you perform a more conservative power analysis?
 - assess the power curve by Child.ID, identifying an ideal number of participants to estimate each effect
 - if your power estimates do not reach an acceptable threshold simulate additional participants and repeat the previous analysis
 - Report the power analysis and comment on what you can (or cannot) use its estimates for.
+
+(Helle)
 ```{r}
 m2 <- lmer(CHI_MLU ~ Gender + Age + Diagnosis*VISIT + I(VISIT^3) + (1 + VISIT | ID), dfsub, REML = F)
 
@@ -92,7 +95,10 @@ minpowerCurveVD
 
 
 plot(minpowerCurveVD)
+```
 
+(Maria)
+```{r}
 #Not enough participants, so we'll extend 
 extendm2 <- extend(m2, along = "ID", n = 80)
 
@@ -111,6 +117,7 @@ plot(extend_minpowerCurveVD)
 
 Assume you have only the resources to collect 30 kids (15 with ASD and 15 TDs). Identify the power for each relevant effect and discuss whether it's worth to run the study and why
 
+
 ```{r}
 #creating a small dataframe with 15 asd kids and 15 td kids
 td <- dfsub %>% 
@@ -122,7 +129,10 @@ asd <- dfsub %>%
 sampletd <- td$ID %>% 
   unique() %>% 
   sample(size = 15)
-  
+```
+
+(Mia)
+```{r}
 sampleasd <- asd$ID %>% 
   unique() %>% 
   sample(size = 15)
